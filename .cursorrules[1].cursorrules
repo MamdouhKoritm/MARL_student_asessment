@@ -1,0 +1,112 @@
+# Cursor AI Rules - MARL Educational Assessment System
+
+## Project Context
+You are working on a Multi-Agent Reinforcement Learning (MARL) educational assessment system with sequential agent workflow. This project uses PyTorch and follows a strict task-driven development approach.
+
+## Core Development Rules
+
+### Task Management Protocol
+1. **ALWAYS check TASKS.md before starting any work**
+2. **NEVER begin coding without referencing a task ID**
+3. **UPDATE task status when you start/complete work**
+4. **CREATE new tasks for discovered issues or requirements**
+
+### Code Quality Standards
+- Use PyTorch for all ML components
+- Follow PEP 8 style guidelines
+- Implement proper error handling and logging
+- Add docstrings for all classes and functions
+- Use type hints where appropriate
+- Ensure GPU/CPU compatibility with device handling
+
+### Commit Message Format
+type(scope): description [TASK-ID]
+Types: feat, fix, docs, style, refactor, test, chore
+Examples:
+
+- feat(agent): implement GradingAgent base structure [TASK-006]
+- fix(env): resolve sequential processing bug [TASK-003]
+- docs(readme): add installation instructions [TASK-025]
+
+
+## Task Workflow Commands
+
+### Before Each Session
+@cursor check current tasks
+@cursor review dependencies
+@cursor identify next priority
+
+### During Development
+@cursor update task status
+@cursor create subtask if needed
+@cursor document blockers
+
+### After Each Session
+@cursor mark completed tasks
+@cursor update progress notes
+@cursor plan next session
+
+
+## Project-Specific Guidelines
+
+### Agent Development
+- All RL agents inherit from base Agent class
+- Implement _preprocess_observation for state handling
+- Use replay buffers for experience storage
+- Include epsilon-greedy exploration
+- Handle class imbalance for Agents 2 & 3
+
+### Sequential Pipeline Rules
+- Agent 1 processes current timestep
+- Agent 2 uses Agent 1's output from t-1
+- Agent 3 uses Agent 1's output from current timestep
+- Maintain strict sequential order in training
+
+### Data Handling
+- Text embeddings: 384-dim arrays for Q, R, A
+- Context features need encoding/normalization
+- Use separate training/evaluation datasets
+- Implement proper device handling (GPU/CPU)
+
+### Training Protocol
+1. Train Agent 1 in isolation until satisfactory
+2. Freeze Agent 1, train Agent 2
+3. Freeze Agent 2, train Agent 3
+4. Optional: Joint fine-tuning
+5. Implement non-RL Agent 4
+
+## File Structure Requirements
+project/
+├── .cursorrules
+├── TASKS.md
+├── data/
+│   ├── embedded_dataset_balanced_v3.pkl
+│   └── embedded_evaluation_dataset_balanced_v3.pkl
+├── src/
+│   ├── agents/
+│   ├── environment/
+│   ├── utils/
+│   └── training/
+├── scripts/
+├── tests/
+└── docs/
+
+
+## Evaluation Standards
+- Use deterministic evaluation (add_noise=False)
+- Calculate metrics: Accuracy, MAE, RMSE, Kappa, F1
+- Handle class imbalance in evaluation
+- Compare against defined performance thresholds
+
+## Dependencies & Blockers
+- Always check task dependencies before starting
+- Document any blockers immediately
+- Update dependent tasks when prerequisites complete
+- Escalate critical path blockers
+
+## Quality Gates
+- [ ] Task ID referenced in all commits
+- [ ] Code follows project standards
+- [ ] Tests pass (when implemented)
+- [ ] Documentation updated
+- [ ] Task status updated in TASKS.md
