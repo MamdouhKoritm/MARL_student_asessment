@@ -112,17 +112,26 @@ def evaluate_agent_on_env(agent: GradingAgent, env: AssessmentEnv, num_episodes:
     }
 
 def main():
+    # Determine the project root based on the script's location
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    project_root = os.path.abspath(os.path.join(script_dir, '..'))
+
+    # Define default paths relative to the project root
+    default_eval_data = os.path.join(project_root, 'synthetic_data_eval_v2_checkpoint.json')
+    default_eval_embeddings = os.path.join(project_root, 'embedded_evaluation_dataset_balanced_v2.pkl')
+    default_model_path = os.path.join(project_root, 'checkpoints', 'trained_model.pt')
+
     parser = argparse.ArgumentParser(description='Evaluate a trained assessment agent.')
-    parser.add_argument('--eval_data', type=str, 
-                        default='../synthetic_data_eval_v2_checkpoint.json', 
-                        help='Path to evaluation data JSON file. Defaults to ../synthetic_data_eval_v2_checkpoint.json')
-    parser.add_argument('--eval_embeddings', type=str, 
-                        default='../embedded_evaluation_dataset_balanced_v2.pkl', 
-                        help='Path to evaluation embeddings pickle file. Defaults to ../embedded_evaluation_dataset_balanced_v2.pkl')
-    parser.add_argument('--model_path', type=str, 
-                        default='../checkpoints/trained_model.pt',
-                        help='Path to the saved model checkpoint (.pt file). Defaults to ../checkpoints/trained_model.pt')
-    parser.add_argument('--hidden_dim', type=int, default=512, 
+    parser.add_argument('--eval_data', type=str,
+                        default=default_eval_data,
+                        help=f'Path to evaluation data JSON file. Defaults to {default_eval_data}')
+    parser.add_argument('--eval_embeddings', type=str,
+                        default=default_eval_embeddings,
+                        help=f'Path to evaluation embeddings pickle file. Defaults to {default_eval_embeddings}')
+    parser.add_argument('--model_path', type=str,
+                        default=default_model_path,
+                        help=f'Path to the saved model checkpoint (.pt file). Defaults to {default_model_path}')
+    parser.add_argument('--hidden_dim', type=int, default=512,
                         help='Hidden dimension of the agent network (must match trained model).')
     # Add other agent-specific parameters if they are crucial for model loading and structure,
     # though ideally, most are handled by the agent's load method or are not critical for eval.
@@ -130,13 +139,20 @@ def main():
     args = parser.parse_args()
 
     print("--- Evaluation Script ---")
-    print(f"Evaluation Data: {args.eval_data}")
-    print(f"Evaluation Embeddings: {args.eval_embeddings}")
-    print(f"Model Path: {args.model_path}")
+    # Paths provided by argparse (either defaults or user-provided) are now used directly.
+    # If they were relative, os.path.abspath() will resolve them correctly based on CWD.
+    # If they were already absolute (like our new defaults), abspath() is idempotent.
+    eval_data_path = os.path.abspath(args.eval_data)
+    eval_embeddings_path = os.path.abspath(args.eval_embeddings)
+    model_path = os.path.abspath(args.model_path)
+
+    print(f"Evaluation Data: {eval_data_path}")
+    print(f"Evaluation Embeddings: {eval_embeddings_path}")
+    print(f"Model Path: {model_path}")
     print(f"Agent Hidden Dimension: {args.hidden_dim}")
 
     print("\nLoading evaluation environment...")
-    eval_env = AssessmentEnv(args.eval_data, args.eval_embeddings)
+    eval_env = AssessmentEnv(eval_data_path, eval_embeddings_path)
     print(f"Evaluation environment loaded. Number of available evaluation items: {eval_env.max_episodes}")
 
     print("\nInitializing agent...")
@@ -153,9 +169,9 @@ def main():
         weight_decay=0 # Not used for eval, but optimizer init needs it
     )
     
-    print(f"Loading model weights from {args.model_path}...")
+    print(f"Loading model weights from {model_path}...")
     try:
-        agent.load(args.model_path)
+        agent.load(model_path)
         print("Model weights loaded successfully.")
     except Exception as e:
         print(f"Error loading model: {e}")

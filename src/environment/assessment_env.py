@@ -148,6 +148,18 @@ class AssessmentEnv(gym.Env):
         assert features.shape == (self.context_dim,), f"Context features shape mismatch: {features.shape}"
         return features
     
+    def check_consistency(self, score: int, feedback_id: int) -> float:
+        """ Placeholder for checking consistency between score and feedback.
+            Returns a bonus reward. Needs to be implemented based on domain knowledge.
+        """
+        # TODO: Implement actual consistency logic based on score-feedback pairings
+        # Example: if score is 5, feedback_id 1 might be consistent (bonus 1.0)
+        #          if score is 1, feedback_id 7 might be consistent (bonus 1.0)
+        #          otherwise, bonus 0.0
+        # This requires defining what combinations are considered consistent.
+        # For now, returning 0.0 as a placeholder.
+        return 0.0
+
     def step(self, action: Dict[str, int]) -> Tuple[Dict[str, np.ndarray], float, bool, Dict]:
         """
         Take a step in the environment.
@@ -169,16 +181,28 @@ class AssessmentEnv(gym.Env):
         current_data = self.train_data[self.current_episode]
         
         # Calculate reward based on expert labels
-        score_error = abs(action['score'] - current_data['expert_score'])
-        score_reward = -score_error  # Penalize based on error magnitude
+        pred_score = action['score']
+        true_score = current_data['expert_score']
+        pred_feedback = action['feedback_id']
+        true_feedback = current_data['expert_feedback_comment_id']
+
+        # Graduated score reward (less penalty for close predictions, steeper for larger errors)
+        score_error = abs(pred_score - true_score)
+        if score_error <= 1:
+            score_reward = -score_error  # Penalty of 0 or -1
+        else:
+            score_reward = -2 * score_error # Penalty of -4, -6, -8, -10 for errors of 2, 3, 4, 5
         
         # Feedback reward with more granularity and impact
-        if action['feedback_id'] == current_data['expert_feedback_comment_id']:
-            feedback_reward = 3.0  # Increased reward for correct feedback
+        if pred_feedback == true_feedback:
+            feedback_reward = 3.0  # Reward for correct feedback
         else:
-            feedback_reward = -1.5 # Stronger, fixed penalty for incorrect feedback
+            feedback_reward = -3.0 # Strong penalty for incorrect feedback (kept from previous enhancement)
         
-        reward = score_reward + feedback_reward
+        # Consistency bonus (placeholder)
+        consistency_bonus = self.check_consistency(pred_score, pred_feedback)
+        
+        reward = score_reward + feedback_reward + consistency_bonus
         
         # Move to next episode
         self.current_episode += 1
@@ -190,7 +214,7 @@ class AssessmentEnv(gym.Env):
         info = {
             'episode': self.current_episode,
             'score_error': score_error,
-            'feedback_correct': action['feedback_id'] == current_data['expert_feedback_comment_id']
+            'feedback_correct': pred_feedback == true_feedback
         }
         
         return observation, reward, done, info

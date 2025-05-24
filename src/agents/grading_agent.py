@@ -10,16 +10,16 @@ from .base_agent import BaseAgent
 class DuelingNetwork(nn.Module):
     def __init__(self, state_dim: int, hidden_dim: int, action_dim: int):
         super(DuelingNetwork, self).__init__()
-        self.feature_layer = nn.Sequential(
-            nn.Linear(state_dim, hidden_dim),
-            nn.LayerNorm(hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(hidden_dim, hidden_dim), # Additional shared layer
-            nn.LayerNorm(hidden_dim),
-            nn.ReLU(),
-            nn.Dropout(p=0.2)
-        )
+        # Shared feature layers
+        self.fc1 = nn.Linear(state_dim, hidden_dim)
+        self.ln1 = nn.LayerNorm(hidden_dim)
+        self.relu1 = nn.ReLU()
+        self.dropout1 = nn.Dropout(p=0.2)
+        
+        self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln2 = nn.LayerNorm(hidden_dim)
+        self.relu2 = nn.ReLU()
+        self.dropout2 = nn.Dropout(p=0.2)
 
         self.value_stream = nn.Sequential(
             nn.Linear(hidden_dim, hidden_dim // 2), # Adjusted size for value stream
@@ -38,7 +38,14 @@ class DuelingNetwork(nn.Module):
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        features = self.feature_layer(x)
+        # Feature layer processing
+        x1 = self.dropout1(self.relu1(self.ln1(self.fc1(x))))
+        
+        # Second block with residual connection
+        x2_intermediate = self.ln2(self.fc2(x1))
+        x2_residual = x1 # Residual from output of first block
+        features = self.dropout2(self.relu2(x2_intermediate + x2_residual)) # Add residual before final activation of block
+
         values = self.value_stream(features)
         advantages = self.advantage_stream(features)
         # Combine V(s) and A(s,a) to get Q(s,a)
