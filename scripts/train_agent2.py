@@ -18,7 +18,7 @@ def parse_args():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(script_dir, '..'))
 
-    default_train_data = os.path.join(project_root, "synthetic_data_train_v2_checkpoint.json")
+    default_train_data = os.path.join(project_root, "enhanced_synthetic_data_train_v2_checkpoint.json")
     default_train_embeddings = os.path.join(project_root, "embedded_dataset_balanced_v2.pkl")
     default_checkpoint_dir_agent1 = os.path.join(project_root, "checkpoints_v2") # Where Agent 1 models are
     default_checkpoint_dir_agent2 = os.path.join(project_root, "checkpoints_agent2") # For Agent 2

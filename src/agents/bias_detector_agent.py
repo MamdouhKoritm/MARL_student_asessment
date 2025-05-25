@@ -10,17 +10,50 @@ from .base_agent import BaseAgent
 class BiasDetectorNetwork(nn.Module):
     def __init__(self, state_dim: int, hidden_dim: int, action_dim: int):
         super().__init__()
+        # First block
         self.fc1 = nn.Linear(state_dim, hidden_dim)
+        self.ln1 = nn.LayerNorm(hidden_dim)
         self.relu1 = nn.ReLU()
+        self.dropout1 = nn.Dropout(p=0.2)
+        
+        # Second block with residual connection
         self.fc2 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln2 = nn.LayerNorm(hidden_dim)
         self.relu2 = nn.ReLU()
-        self.fc3 = nn.Linear(hidden_dim, action_dim)
+        self.dropout2 = nn.Dropout(p=0.2)
+        
+        # Third block with residual connection
+        self.fc3 = nn.Linear(hidden_dim, hidden_dim)
+        self.ln3 = nn.LayerNorm(hidden_dim)
+        self.relu3 = nn.ReLU()
+        self.dropout3 = nn.Dropout(p=0.2)
+        
+        # Output layer
+        self.fc_out = nn.Linear(hidden_dim, action_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x = self.relu1(self.fc1(x))
-        x = self.relu2(self.fc2(x))
-        x = self.fc3(x)
-        return x
+        # First block
+        x1 = self.fc1(x)
+        x1 = self.ln1(x1)
+        x1 = self.relu1(x1)
+        x1 = self.dropout1(x1)
+        
+        # Second block with residual
+        x2 = self.fc2(x1)
+        x2 = self.ln2(x2)
+        x2 = self.relu2(x2)
+        x2 = self.dropout2(x2)
+        x2 = x2 + x1  # Residual connection
+        
+        # Third block with residual
+        x3 = self.fc3(x2)
+        x3 = self.ln3(x3)
+        x3 = self.relu3(x3)
+        x3 = self.dropout3(x3)
+        x3 = x3 + x2  # Residual connection
+        
+        # Output
+        return self.fc_out(x3)
 
 class BiasDetectorAgent(BaseAgent):
     def __init__(self,
@@ -75,8 +108,8 @@ class BiasDetectorAgent(BaseAgent):
         Convert observation dictionary to tensor for Agent 2.
         Observation is expected to contain:
         - 'context_features': np.ndarray of shape (context_dim,)
-        - 'agent1_score': int, previous score from Agent 1
-        - 'agent1_feedback_id': int, previous feedback_id from Agent 1
+        - 'agent1_score': int, score from Agent 1 (can be current or previous depending on training setup)
+        - 'agent1_feedback_id': int, feedback_id from Agent 1 (can be current or previous)
         """
         context_features = torch.from_numpy(observation['context_features']).float().to(self.device) # (context_dim,)
         

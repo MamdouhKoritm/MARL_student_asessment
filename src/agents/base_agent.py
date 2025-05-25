@@ -101,62 +101,42 @@ class BaseAgent(nn.Module):
         if len(self.replay_buffer) < self.batch_size:
             return 0.0
         
-        # Ensure optimizer is initialized (should have been called by subclass's __init__)
         if self.optimizer is None:
-            print("Warning: Optimizer not initialized directly by subclass. Attempting to initialize now.")
-            self._init_optimizer() # Fallback initialization
+            self._init_optimizer()
 
         states, actions, rewards, next_states, dones = self.replay_buffer.sample(self.batch_size)
         
         states = states.to(self.device)
         actions = actions.to(self.device)
-        rewards = rewards.to(self.device).float() # Ensure rewards are float
+        rewards = rewards.to(self.device).float()
         next_states = next_states.to(self.device)
-        dones = dones.to(self.device).float() # Ensure dones are float
+        dones = dones.to(self.device).float()
 
-        # Get Q-values for current states: Q(s, a)
-        # self.network(states) shape: (batch_size, action_dim)
-        # actions shape: (batch_size, 1)
-        # We need to gather the Q-value for the action taken.
-        curr_q = self.network(states).gather(1, actions) # Shape: (batch_size, 1)
+        curr_q = self.network(states).gather(1, actions)
         
-        # Get Q-values for next states from target network: max_a' Q_target(s', a')
         with torch.no_grad():
-            next_q_values = self.target_network(next_states) # Shape: (batch_size, action_dim)
-            max_next_q = next_q_values.max(dim=1, keepdim=True)[0] # Shape: (batch_size, 1)
-            
-        # Compute target Q-values: r + gamma * max_a' Q_target(s', a') * (1 - done)
-        target_q = rewards + (self.gamma * max_next_q * (1 - dones)) # Shape: (batch_size, 1)
+            next_q_values = self.target_network(next_states)
+            max_next_q = next_q_values.max(dim=1, keepdim=True)[0]
+            target_q = rewards + (self.gamma * max_next_q * (1 - dones))
         
-        # Compute loss (e.g., Huber loss / Smooth L1 loss)
         loss = nn.SmoothL1Loss()(curr_q, target_q)
-
-        # Debug: Print values for the first few samples in the batch
-        # if self.train_step_counter % 100 == 0: # Print every 100 train steps
-        #     print_limit = min(3, self.batch_size) # Print up to 3 samples
-        #     print(f"--- Debug Batch (Train Step: {self.train_step_counter}) ---")
-        #     for i in range(print_limit):
-        #         print(f"  Sample {i}:")
-        #         print(f"    Reward: {rewards[i].item():.4f}")
-        #         print(f"    Done: {dones[i].item()}")
-        #         print(f"    Curr_Q: {curr_q[i].item():.4f}")
-        #         print(f"    Max_Next_Q (Target Net): {max_next_q[i].item():.4f}")
-        #         print(f"    Target_Q: {target_q[i].item():.4f}")
-        #     print(f"  Overall Batch Loss: {loss.item():.4f}")
-        #     print(f"------------------------------------")
         
         # Optimize the model
         self.optimizer.zero_grad()
         loss.backward()
-        # Optional: Gradient clipping
+        
+        # Proper gradient clipping
         torch.nn.utils.clip_grad_norm_(self.network.parameters(), max_norm=1.0)
-        self.optimizer.step()
+        
+        # Always apply gradients unless loss is NaN
+        if not torch.isnan(loss):
+            self.optimizer.step()
         
         # Update target network
         self.train_step_counter += 1
         if self.train_step_counter % self.target_update_freq == 0:
             self.target_network.load_state_dict(self.network.state_dict())
-            
+        
         return loss.item()
     
     def save(self, path: str):

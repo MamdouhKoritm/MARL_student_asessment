@@ -24,7 +24,7 @@ def parse_args():
     script_dir = os.path.dirname(os.path.abspath(__file__))
     project_root = os.path.abspath(os.path.join(script_dir, '..'))
 
-    default_train_data = os.path.join(project_root, "synthetic_data_train_v2_checkpoint.json")
+    default_train_data = os.path.join(project_root, "enhanced_synthetic_data_train_v2_checkpoint.json")
     default_train_embeddings = os.path.join(project_root, "embedded_dataset_balanced_v2.pkl")
     default_eval_data = os.path.join(project_root, "synthetic_data_eval_v2_checkpoint.json")
     default_eval_embeddings = os.path.join(project_root, "embedded_evaluation_dataset_balanced_v2.pkl")

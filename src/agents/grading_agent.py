@@ -10,7 +10,7 @@ from .base_agent import BaseAgent
 class DuelingNetwork(nn.Module):
     def __init__(self, state_dim: int, hidden_dim: int, action_dim: int):
         super(DuelingNetwork, self).__init__()
-        # Shared feature layers
+        # Shared feature layers with residual connections
         self.fc1 = nn.Linear(state_dim, hidden_dim)
         self.ln1 = nn.LayerNorm(hidden_dim)
         self.relu1 = nn.ReLU()
@@ -20,51 +20,66 @@ class DuelingNetwork(nn.Module):
         self.ln2 = nn.LayerNorm(hidden_dim)
         self.relu2 = nn.ReLU()
         self.dropout2 = nn.Dropout(p=0.2)
-
-        self.value_stream = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2), # Adjusted size for value stream
-            nn.LayerNorm(hidden_dim // 2),
-            nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(hidden_dim // 2, 1)
-        )
-
-        self.advantage_stream = nn.Sequential(
-            nn.Linear(hidden_dim, hidden_dim // 2), # Adjusted size for advantage stream
-            nn.LayerNorm(hidden_dim // 2),
-            nn.ReLU(),
-            nn.Dropout(p=0.2),
-            nn.Linear(hidden_dim // 2, action_dim)
-        )
+        
+        # Value stream with layer normalization
+        self.value_stream_fc1 = nn.Linear(hidden_dim, hidden_dim // 2)
+        self.value_stream_ln1 = nn.LayerNorm(hidden_dim // 2)
+        self.value_stream_relu = nn.ReLU()
+        self.value_stream_dropout = nn.Dropout(p=0.2)
+        self.value_stream_fc2 = nn.Linear(hidden_dim // 2, 1)
+        
+        # Advantage stream with layer normalization
+        self.adv_stream_fc1 = nn.Linear(hidden_dim, hidden_dim // 2)
+        self.adv_stream_ln1 = nn.LayerNorm(hidden_dim // 2)
+        self.adv_stream_relu = nn.ReLU()
+        self.adv_stream_dropout = nn.Dropout(p=0.2)
+        self.adv_stream_fc2 = nn.Linear(hidden_dim // 2, action_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        # Feature layer processing
+        # Feature layer processing with residual connection
         x1 = self.dropout1(self.relu1(self.ln1(self.fc1(x))))
-        
-        # Second block with residual connection
-        x2_intermediate = self.ln2(self.fc2(x1))
-        x2_residual = x1 # Residual from output of first block
-        features = self.dropout2(self.relu2(x2_intermediate + x2_residual)) # Add residual before final activation of block
+        x2 = self.fc2(x1)
+        x2 = self.ln2(x2)
+        x2 = self.relu2(x2)
+        x2 = self.dropout2(x2)
+        features = x2 + x1  # Residual connection
 
-        values = self.value_stream(features)
-        advantages = self.advantage_stream(features)
-        # Combine V(s) and A(s,a) to get Q(s,a)
-        # Q(s,a) = V(s) + (A(s,a) - mean(A(s,a')))
-        qvals = values + (advantages - advantages.mean(dim=1, keepdim=True))
+        # Value stream with layer norm
+        val = self.value_stream_fc1(features)
+        val = self.value_stream_ln1(val)
+        val = self.value_stream_relu(val)
+        val = self.value_stream_dropout(val)
+        value = self.value_stream_fc2(val)
+
+        # Advantage stream with layer norm
+        adv = self.adv_stream_fc1(features)
+        adv = self.adv_stream_ln1(adv)
+        adv = self.adv_stream_relu(adv)
+        adv = self.adv_stream_dropout(adv)
+        advantage = self.adv_stream_fc2(adv)
+
+        # Combine streams
+        qvals = value + (advantage - advantage.mean(dim=1, keepdim=True))
+
+        # --- DEBUG PRINTS for DuelingNetwork streams ---
+        # print(f"DEBUG_DUELING: value_stream out - Min: {value.min().item()}, Max: {value.max().item()}, Mean: {value.mean().item()}, Shape: {value.shape}")
+        # print(f"DEBUG_DUELING: advantage_stream out - Min: {advantage.min().item()}, Max: {advantage.max().item()}, Mean: {advantage.mean().item()}, Shape: {advantage.shape}")
+        # --- END DEBUG PRINTS ---
+
         return qvals
 
 class GradingAgent(BaseAgent):
     def __init__(self,
                  hidden_dim: int = 256,
-                 learning_rate: float = 1e-4,
+                 learning_rate: float = 1e-5,
                  gamma: float = 0.99,
                  epsilon_start: float = 1.0,
                  epsilon_end: float = 0.01,
                  epsilon_decay: float = 0.995,
                  buffer_size: int = 10000,
                  batch_size: int = 64,
-                 target_update_freq: int = 10,
-                 weight_decay: float = 0.0):
+                 target_update_freq: int = 50,
+                 weight_decay: float = 1e-5):
         
         # State dimension: 3 embeddings (768 each) + context features (10)
         self.embedding_dim = 768
